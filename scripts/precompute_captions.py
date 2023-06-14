@@ -233,7 +233,6 @@ def main(args: Namespace) -> None:
     device = DeviceGPU()
     dist.initialize_dist(device)
 
-
     dataloader = build_streaming_laion_dataloader(
         remote=[
             f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{args.bucket}/256-512',
@@ -267,9 +266,11 @@ def main(args: Namespace) -> None:
             "Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16
         )
         device.module_to_device(model)
-    vae = AutoencoderKL.from_pretrained(args.model_name, subfolder='vae', torch_dtype=torch.float16)
+    USE_LATENTS = False
+    if USE_LATENTS:
+        vae = AutoencoderKL.from_pretrained(args.model_name, subfolder='vae', torch_dtype=torch.float16)
+        vae = device.module_to_device(vae)
     text_encoder = CLIPTextModel.from_pretrained(args.model_name, subfolder='text_encoder', torch_dtype=torch.float16)
-    vae = device.module_to_device(vae)
     text_encoder = device.module_to_device(text_encoder)
 
     columns = {
@@ -290,12 +291,11 @@ def main(args: Namespace) -> None:
         'hash': 'int64',
         'aesthetic_score': 'float64',
         'caption_latents': 'bytes',
-        'latents_256': 'bytes',
-        'latents_512': 'bytes',
-        'blip2_caption': 'str',
-        'blip2_caption_enc': 'bytes',
-
     }
+    if USE_LATENTS:
+        columns |= {'latents_256': 'bytes', 'latents_512': 'bytes'}
+
+    columns |= {'blip2_caption': 'str', 'blip2_caption_enc': 'bytes',}
 
     # We split each bucket into 8 copies for each GPU per node
     remote_upload = os.path.join(args.remote_upload, str((args.bucket - 1) * 8 + dist.get_local_rank()))
@@ -318,8 +318,9 @@ def main(args: Namespace) -> None:
             # Encode the images to the latent space with magical scaling number (See https://github.com/huggingface/diffusers/issues/437#issuecomment-1241827515)
             generated_ids = model.generate(**inputs, max_new_tokens=dataloader.tokenizer.model_max_length)
 
-            latents_256 = vae.encode(image_256.half())['latent_dist'].sample().data * 0.18215
-            latents_512 = vae.encode(image_512.half())['latent_dist'].sample().data * 0.18215
+            if USE_LATENTS:
+                latents_256 = vae.encode(image_256.half())['latent_dist'].sample().data * 0.18215
+                latents_512 = vae.encode(image_512.half())['latent_dist'].sample().data * 0.18215
             
             # Encode the text. Assume that the text is already tokenized
             conditioning = text_encoder(captions.view(-1, captions.shape[-1]))[0]  # Should be (batch_size, 77, 768)
@@ -340,17 +341,19 @@ def main(args: Namespace) -> None:
             blip2_caption_enc = text_encoder(blip2_caption_tokenized)[0]
 
         # Move the latents to CPU and convert to numpy / bytes
-        latents_256 = latents_256.cpu().numpy()
-        latents_512 = latents_512.cpu().numpy()
+        if USE_LATENTS:
+            latents_256 = latents_256.cpu().numpy()
+            latents_512 = latents_512.cpu().numpy()
         conditioning = conditioning.cpu().numpy()
         blip2_caption_enc = blip2_caption_enc.cpu().numpy()
 
         sample = batch['sample']
         for i in range(image_256.shape[0]):
-            latents_256_sample = latents_256[i].tobytes() if min(sample['width'][i],
-                                                                 sample['height'][i]) >= 256 else b''
-            latents_512_sample = latents_512[i].tobytes() if min(sample['width'][i],
-                                                                 sample['height'][i]) >= 512 else b''
+            if USE_LATENTS:
+                latents_256_sample = latents_256[i].tobytes() if min(sample['width'][i],
+                                                                    sample['height'][i]) >= 256 else b''
+                latents_512_sample = latents_512[i].tobytes() if min(sample['width'][i],
+                                                                    sample['height'][i]) >= 512 else b''
             mds_sample = {
                 'punsafe': sample['punsafe'][i],
                 'pwatermark': sample['pwatermark'][i],
@@ -369,8 +372,13 @@ def main(args: Namespace) -> None:
                 'hash': sample['hash'][i],
                 'aesthetic_score': sample['aesthetic_score'][i],
                 'caption_latents': conditioning[i].tobytes(),
-                'latents_256': latents_256_sample,
-                'latents_512': latents_512_sample,
+            }
+            if USE_LATENTS:
+                mds_sample |= {
+                    'latents_256': latents_256_sample,
+                    'latents_512': latents_512_sample,
+                }
+            mds_sample |= {
                 'blip2_caption': blip2_caption[i],
                 'blip2_caption_enc': blip2_caption_enc[i].tobytes(),
             }
