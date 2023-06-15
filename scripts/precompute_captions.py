@@ -266,7 +266,7 @@ def main(args: Namespace) -> None:
             "Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16
         )
         device.module_to_device(model)
-    USE_LATENTS = False
+    USE_LATENTS = True
     if USE_LATENTS:
         vae = AutoencoderKL.from_pretrained(args.model_name, subfolder='vae', torch_dtype=torch.float16)
         vae = device.module_to_device(vae)
@@ -310,7 +310,7 @@ def main(args: Namespace) -> None:
     for batch_idx, batch in enumerate(tqdm(dataloader)):
         image_256 = device.batch_to_device(batch['image_0'])
         image_512 = device.batch_to_device(batch['image_1'])
-        inputs = processor(images=(image_512 + 1) * 0.5, return_tensors="pt").to(torch.float16) # .to(device, torch.float16)
+        inputs = processor(images=torch.round(((image_512 + 1) * 127.5)).to(torch.uint8), return_tensors="pt").to(torch.float16) # .to(device, torch.float16) 
         inputs = device.batch_to_device(inputs)
         captions = device.batch_to_device(batch['captions'])
 
