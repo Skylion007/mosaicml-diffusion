@@ -56,6 +56,8 @@ class StreamingLAIONDataset(StreamingDataset):
         batch_size: Optional[int] = None,
         image_size: Optional[int] = None,
         num_canonical_nodes: Optional[int] = None,
+        shuffle_algo: str = 'py1s',
+        shuffle_block_size: int = 1 << 18,
     ) -> None:
 
         super().__init__(
@@ -71,6 +73,8 @@ class StreamingLAIONDataset(StreamingDataset):
             validate_hash=None,
             batch_size=batch_size,
             num_canonical_nodes=num_canonical_nodes,
+            shuffle_algo=shuffle_algo,
+            shuffle_block_size=shuffle_block_size,
         )
 
         self.transform = transform
