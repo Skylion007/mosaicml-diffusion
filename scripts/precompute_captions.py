@@ -232,13 +232,14 @@ def main(args: Namespace) -> None:
 
     device = DeviceGPU()
     dist.initialize_dist(device)
-
+    assert 1 <= args.bucket <= 9 
+    remote_bucket = args.bucket % 9
     dataloader = build_streaming_laion_dataloader(
         remote=[
-            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{args.bucket}/256-512',
-            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{args.bucket}/512-768',
-            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{args.bucket}/768-1024',
-            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{args.bucket}/1024-1048576',
+            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{remote_bucket}/256-512',
+            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{remote_bucket}/512-768',
+            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{remote_bucket}/768-1024',
+            f'oci://mosaicml-internal-dataset-laion2b-en/4.5v2/10m-subsets/{remote_bucket}/1024-1048576',
             ],#os.path.join(args.remote_download, str(args.bucket))],
         local=[f"/tmp/mds-cache/mds-laion2b-blip2-11/4.5v2/{args.bucket}/{suffix}/" for suffix in ["256-512", "512-768", "768-1024", "1024-1048576"]],
         batch_size=args.batch_size,
