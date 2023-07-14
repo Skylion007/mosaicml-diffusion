@@ -243,7 +243,7 @@ def main(args: Namespace) -> None:
         wandb.init(name=args.wandb_name, project=args.wandb_project, entity=args.wandb_entity)
 
     device = DeviceGPU()
-    dist.initialize_dist(device)
+    dist.initialize_dist(device, timeout=1500)
     assert 1 <= args.bucket <= 10
     remote_bucket = args.bucket % 10
     #print(remote_bucket)
