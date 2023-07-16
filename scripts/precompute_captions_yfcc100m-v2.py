@@ -352,7 +352,7 @@ def main(args: Namespace) -> None:
                        compression=None,
                        hash=[],
                        size_limit=256 * (2**20),
-                       max_workers=64)
+                       max_workers=128)
 
     max_sample_idx = 0
     for batch_idx, batch in enumerate(tqdm(dataloader)):
