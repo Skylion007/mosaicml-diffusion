@@ -282,7 +282,7 @@ def main(args: Namespace) -> None:
     print(model.config)
     #assert False
     blip2_tokenizer = AutoTokenizer.from_pretrained("Salesforce/blip2-opt-2.7b")
-    USE_LATENTS = True
+    USE_LATENTS = False
     if USE_LATENTS:
         vae = AutoencoderKL.from_pretrained(args.model_name, subfolder='vae', torch_dtype=torch.float16)
         vae = device.module_to_device(vae)
