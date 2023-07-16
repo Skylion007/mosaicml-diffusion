@@ -243,7 +243,7 @@ def main(args: Namespace) -> None:
         wandb.init(name=args.wandb_name, project=args.wandb_project, entity=args.wandb_entity)
 
     device = DeviceGPU()
-    dist.initialize_dist(device, timeout=1500)
+    dist.initialize_dist(device)
     assert 1 <= args.bucket <= 10
     remote_bucket = args.bucket % 10
     #print(remote_bucket)
@@ -252,7 +252,7 @@ def main(args: Namespace) -> None:
             f'oci://mosaicml-internal-dataset-yfcc100m/yfcc100m/no-caps/{remote_bucket}/256-512',
             f'oci://mosaicml-internal-dataset-yfcc100m/yfcc100m/no-caps/{remote_bucket}/512-768',
             ],#os.path.join(args.remote_download, str(args.bucket))],
-        local=[f"/tmp/mds-cache/mds-yfcc100m-blip2-14/{args.bucket}/{suffix}/" for suffix in ["256-512", "512-768"]],
+        local=[f"/tmp/mds-cache/mds-yfcc100m-blip2-16/{args.bucket}/{suffix}/" for suffix in ["256-512", "512-768"]],
         batch_size=args.batch_size,
         tokenizer_name_or_path=args.model_name,
         caption_drop_prob=0.0,
@@ -342,17 +342,16 @@ def main(args: Namespace) -> None:
         column_types |= {'latents_256': 'bytes', 'latents_512': 'bytes'}
 
     column_types |= {'blip2_caption': 'str', 'blip2_caption_enc': 'bytes',}
-    column_types |= {'blip2_img_enc': 'bytes', 'blip2_caption_blip2_enc': 'bytes',}
+    column_types |= {'blip2_logits_enc': 'bytes', 'blip2_caption_blip2_enc': 'bytes',}
     columns= column_types
 
     # We split each bucket into 8 copies for each GPU per node
     remote_upload = os.path.join(args.remote_upload, str((args.bucket - 1) * 8 + dist.get_local_rank()))
     writer = MDSWriter(out=remote_upload,
                        columns=columns,
-                       compression="zstd",
+                       compression=None,
                        hash=[],
-                       size_limit=6.4e7,
-                       #size_limit=256 * (2**20),
+                       size_limit=256 * (2**20),
                        max_workers=64)
 
     max_sample_idx = 0
@@ -365,9 +364,12 @@ def main(args: Namespace) -> None:
 
         with torch.inference_mode():#torch.no_grad():
             # Encode the images to the latent space with magical scaling number (See https://github.com/huggingface/diffusers/issues/437#issuecomment-1241827515)
-            generated_ids = model.generate(**inputs, max_new_tokens=dataloader.tokenizer.model_max_length)
-            blip2_visual_features = model.vision_model(**inputs)
-            blip2_visual_features = blip2_visual_features.last_hidden_state
+            model_outputs = model.generate(**inputs, max_new_tokens=dataloader.tokenizer.model_max_length, return_dict_in_generate=True, output_scores=True)
+            generated_ids = model_outputs.sequences
+            blip2_caption_logit_heads = model_outputs.scores
+            blip2_caption_logits = torch.stack(blip2_caption_logit_heads, dim=-1)
+            #blip2_visual_features = model.vision_model(**inputs)
+            #blip2_visual_features = blip2_visual_features.last_hidden_state
             #print(blip2_visual_features)
             if USE_LATENTS:
                 latents_256 = vae.encode(image_256.half())['latent_dist'].sample().data * 0.18215
@@ -410,7 +412,7 @@ def main(args: Namespace) -> None:
         #conditioning = conditioning.cpu().numpy()
         blip2_caption_enc = blip2_caption_enc.cpu().numpy()
         blip2_caption_retokenized = blip2_caption_retokenized.cpu().numpy()
-        blip2_visual_features = blip2_visual_features.cpu().numpy()
+        blip2_caption_logits = blip2_caption_logits.cpu().numpy()
 
         sample = batch['sample']
         for i in range(image_256.shape[0]):
@@ -451,7 +453,7 @@ def main(args: Namespace) -> None:
                 'blip2_caption_enc': blip2_caption_enc[i].tobytes(),
             }
             mds_sample |= {
-                'blip2_img_enc': blip2_visual_features[i].tobytes(),
+                'blip2_logits_enc': blip2_caption_logits[i].tobytes(),
                 'blip2_caption_blip2_enc': blip2_caption_retokenized[i].tobytes(),
             }
             writer.write(mds_sample)
