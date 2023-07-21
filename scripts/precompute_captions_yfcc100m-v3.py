@@ -320,22 +320,36 @@ def main(args: Namespace) -> None:
     'secret_original', 'extension_original', 'photo_video_marker'
     ]
 
-    column_types = {column: 'str' for column in column_names}
-    column_types['photo_video_identifier'] = 'str'
-    column_types['date_taken'] = 'str'
-    column_types['date_uploaded'] = 'str'
-    column_types['longitude'] = 'float64'
-    column_types['latitude'] = 'float64'
-    column_types['accuracy'] = 'float64'
-    column_types['capture_device'] = 'str'
-    column_types['server_identifier'] = 'str'
-    column_types['farm_identifier'] = 'str'
-    column_types['photo_video_marker'] = 'int64'
-    column_types['machine_tags'] = 'str'
-    column_types['jpg'] = 'bytes'
-    column_types['height'] = 'int64'
-    column_types['width'] = 'int64'
-
+    column_types = {
+        "photoid": "int64",
+        "uid": "str",
+        "unickname": "str",
+        "datetaken": "str",
+        "dateuploaded": "str",
+        "capturedevice": "str",
+        "title": "str",
+        #"description": str,
+        "caption" : "str",
+        "usertags": "str",
+        "machinetags": "str",
+        "longitude": "float64",
+        "latitude": "float64",
+        "accuracy": "float64",
+        "pageurl": "str",
+        "downloadurl": "str",
+        "licensename": "str",
+        "licenseurl": "str",
+        "serverid": "int64",
+        "farmid": "int64",
+        "secret": "str",
+        "secretoriginal": "str",
+        "ext": "str",
+        "jpg": "bytes",
+        "height": "int64",
+        "width": "int64",
+        #"marker": "int64",
+        #"original_image_url": str
+    }
 
     if USE_LATENTS:
         column_types |= {'latents_256': 'bytes', 'latents_512': 'bytes'}
