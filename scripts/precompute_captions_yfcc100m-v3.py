@@ -354,8 +354,11 @@ def main(args: Namespace) -> None:
     if USE_LATENTS:
         column_types |= {'latents_256': 'bytes', 'latents_512': 'bytes'}
 
-    column_types |= {'blip2_caption': 'str', 'blip2_caption_enc': 'bytes',}
-    column_types |= {'blip2_logits_enc': 'bytes', 'blip2_caption_blip2_enc': 'bytes',}
+    column_types |= {'blip2_caption': 'str', 'blip2_caption_enc': 'bytes'}
+
+    SAVE_EMBED = False
+    if SAVE_EMBED:
+        column_types |= {'blip2_logits_enc': 'bytes', 'blip2_caption_blip2_enc': 'bytes',}
     columns= column_types
 
     # We split each bucket into 8 copies for each GPU per node
@@ -466,10 +469,11 @@ def main(args: Namespace) -> None:
                 'blip2_caption': blip2_caption[i],
                 'blip2_caption_enc': blip2_caption_enc[i].tobytes(),
             }
-            mds_sample |= {
-                'blip2_logits_enc': blip2_caption_logits[i].tobytes(),
-                'blip2_caption_blip2_enc': blip2_caption_retokenized[i].tobytes(),
-            }
+            if SAVE_EMBED:
+                mds_sample |= {
+                    'blip2_logits_enc': blip2_caption_logits[i].tobytes(),
+                    'blip2_caption_blip2_enc': blip2_caption_retokenized[i].tobytes(),
+                }
             writer.write(mds_sample)
         if not args.wandb_disabled and dist.get_local_rank() == 0:
             wandb.log({'batch': batch_idx, 'progress': batch_idx / len(dataloader)})
