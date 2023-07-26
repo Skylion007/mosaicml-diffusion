@@ -365,7 +365,8 @@ def main(args: Namespace) -> None:
     remote_upload = os.path.join(args.remote_upload, str((args.bucket - 1) * 8 + dist.get_local_rank()))
     writer = MDSWriter(out=remote_upload,
                        columns=columns,
-                       compression='zstd',
+                       compression=None,
+                       #compression='zstd',
                        hash=[],
                        size_limit=6.4e7,
                        #size_limit=256 * (2**20),
