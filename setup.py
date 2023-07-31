@@ -16,6 +16,8 @@ install_requires = [
     'xformers',
     'triton',
     'torchmetrics[image]',
+    'clean-fid',
+    'clip@git+https://github.com/openai/CLIP.git',
 ]
 
 extras_require = {}
