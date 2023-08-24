@@ -69,7 +69,7 @@ class StreamingLAIONDataset(StreamingDataset):
             download_timeout=download_timeout,
             validate_hash=None,
             batch_size=batch_size,
-            cache_limit=1e+12,
+            cache_limit=1e+11,
         )
 
         self.transform = transform
