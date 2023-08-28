@@ -245,8 +245,8 @@ def main(args: Namespace) -> None:
 
     device = DeviceGPU()
     dist.initialize_dist(device, timeout=1500)
-    assert 1 <= args.bucket <= 10
-    remote_bucket = args.bucket % 1!
+    assert 1 <= args.bucket <= 11
+    remote_bucket = args.bucket % 11
     #print(remote_bucket)
     dataloader = build_streaming_laion_dataloader(
             remote=[
