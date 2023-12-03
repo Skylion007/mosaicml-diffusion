@@ -167,7 +167,10 @@ class StableDiffusion(ComposerModel):
             # only wrap models we are training
             self.text_encoder._fsdp_wrap = False
             self.vae._fsdp_wrap = False
-            self.unet._fsdp_wrap = True
+            #self.unet._fsdp_wrap = True
+            for mod in [*self.unet.down_blocks, self.unet.mid_block, *self.unet.up_blocks]:
+
+                mod._fsdp_wrap = True
 
     def forward(self, batch):
         latents, conditioning, conditioning_2, pooled_conditioning = None, None, None, None
@@ -189,14 +192,14 @@ class StableDiffusion(ComposerModel):
                 with torch.cuda.amp.autocast(enabled=False):
                     # Encode the images to the latent space.
                     # Encode prompt into conditioning vector
-                    latents = self.vae.encode(inputs.half())['latent_dist'].sample().data
+                    latents = self.vae.encode(inputs.half())['latent_dist'].sample()# .data
                     if self.sdxl:
                         conditioning, pooled_conditioning = self.text_encoder([conditioning, conditioning_2])
                     else:
                         conditioning = self.text_encoder(conditioning)[0]  # Should be (batch_size, 77, 768)
 
             else:
-                latents = self.vae.encode(inputs)['latent_dist'].sample().data
+                latents = self.vae.encode(inputs)['latent_dist'].sample()# .data
                 if self.sdxl:
                     conditioning, pooled_conditioning = self.text_encoder([conditioning, conditioning_2])
                 else:
